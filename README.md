@@ -1,3 +1,5 @@
+![Vercel Deploy](https://deploy-badge.vercel.app/vercel/birt-convert) 
+
 # BIRT Convert
 
 A web app for converting decimal hours in BIRT Studio CSV and XLSX reports to `hh:mm` format. If you've ever exported time tracking data from BIRT and needed it in hour:minute format instead of decimals, this does that.
