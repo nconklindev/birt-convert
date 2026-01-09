@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/card'
 import FileUpload from './FileUpload.vue'
 import ColumnSelector from './ColumnSelector.vue'
+import HowToUse from './HowToUse.vue'
 import { parseCSVFile, convertCSVColumns, convertToCSV } from '@/lib/csvParser'
 import { parseXLSXFile, convertToXLSX } from '@/lib/xlsxParser'
 import type { ParsedCSV } from '@/lib/csvParser'
@@ -214,6 +215,9 @@ function resetForm() {
   >
     <p class="font-medium">{{ errorMessage }}</p>
   </div>
+
+  <!-- How To Use (only shown on upload step) -->
+  <HowToUse v-if="currentStep === 'upload'" />
 
   <!-- Step 1: File Upload -->
   <Card v-if="currentStep === 'upload'" class="w-full max-w-3xl mx-auto">
