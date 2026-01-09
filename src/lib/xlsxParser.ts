@@ -94,6 +94,42 @@ function getMergedColumns(worksheet: XLSX.WorkSheet, headerRowIndex: number): Se
 }
 
 /**
+ * Check if worksheet has columns with missing data (likely uncached formula columns)
+ * Returns the names of columns that appear to be missing data
+ */
+function findMissingDataColumns(worksheet: XLSX.WorkSheet, headerRowIndex: number): string[] {
+  const cellKeys = Object.keys(worksheet).filter((k) => !k.startsWith('!'))
+
+  // Count cells per column
+  const columnCounts: Record<string, number> = {}
+  for (const key of cellKeys) {
+    const col = key.replace(/[0-9]/g, '')
+    columnCounts[col] = (columnCounts[col] || 0) + 1
+  }
+
+  // Find the max cell count (expected number of rows including header)
+  const maxCount = Math.max(...Object.values(columnCounts))
+
+  // Find columns that only have the header (1 cell) while others have data
+  const missingColumns: string[] = []
+  if (maxCount > 1) {
+    for (const col of Object.keys(columnCounts)) {
+      if (columnCounts[col] === 1) {
+        // This column only has the header - find the header name
+        const headerCell = worksheet[`${col}${headerRowIndex + 1}`] as XLSX.CellObject | undefined
+        if (headerCell && headerCell.v) {
+          missingColumns.push(String(headerCell.v))
+        } else {
+          missingColumns.push(`Column ${col}`)
+        }
+      }
+    }
+  }
+
+  return missingColumns
+}
+
+/**
  * Parse an XLSX file with smart header detection
  */
 function parseXLSXSheet(workbook: XLSX.WorkBook): SheetData {
@@ -106,11 +142,11 @@ function parseXLSXSheet(workbook: XLSX.WorkBook): SheetData {
     throw new Error(`Sheet "${firstSheetName}" not found in workbook`)
   }
 
-  // Convert sheet to array of arrays
+  // Convert sheet to array of arrays (raw: true preserves numbers as numbers)
   const rawData: unknown[][] = XLSX.utils.sheet_to_json(worksheet, {
     header: 1,
     defval: null,
-    raw: false,
+    raw: true,
   })
 
   // Detect header row
@@ -141,6 +177,16 @@ function parseXLSXSheet(workbook: XLSX.WorkBook): SheetData {
 
   // Ensure uniqueness by appending count if duplicate
   const headers = ensureUniqueHeaders(rawHeaders)
+
+  // Check for columns with missing data (likely uncached formula columns from BIRT exports)
+  const missingColumns = findMissingDataColumns(worksheet, headerRowIndex)
+  if (missingColumns.length > 0) {
+    throw new Error(
+      `The following columns have no data: ${missingColumns.join(', ')}. ` +
+        'This usually happens when Excel formulas are not cached. ' +
+        'Please open the file in Excel, press Ctrl+S to save (which caches formula results), then re-upload.',
+    )
+  }
 
   // Map original column indices to unique header names
   validColumnIndices.forEach((originalIndex, headerIndex) => {
@@ -207,7 +253,11 @@ export function parseXLSXFile(file: File): Promise<ParsedCSV> {
           suggestedColumns,
         })
       } catch (error) {
-        reject(new Error(`Failed to parse XLSX: ${error instanceof Error ? error.message : 'Unknown error'}`))
+        reject(
+          new Error(
+            `Failed to parse XLSX: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          ),
+        )
       }
     }
 
