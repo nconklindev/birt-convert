@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
+import AlertBox from './AlertBox.vue'
 
 const isOpen = ref(false)
 </script>
@@ -52,59 +53,51 @@ const isOpen = ref(false)
             </ol>
           </section>
 
-          <!-- Common Issues -->
+          <!-- Troubleshooting -->
           <section>
             <h3 class="font-semibold text-foreground mb-2 flex items-center gap-2">
               <Icon
-                icon="lucide:alert-triangle"
+                icon="lucide:wrench"
                 class="w-4 h-4 text-amber-500"
                 aria-hidden="true"
               />
-              Common Issues
+              Troubleshooting
             </h3>
             <div class="space-y-3">
-              <!-- BIRT Formula Issue -->
-              <div
-                class="rounded border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/50 p-3"
-              >
-                <h4 class="font-medium text-amber-800 dark:text-amber-200 text-sm mb-1">
-                  XLSX files with "columns have no data" error
-                </h4>
-                <p class="text-sm text-amber-700 dark:text-amber-300 mb-2">
+              <AlertBox variant="warning" title="XLSX files not converting correctly">
+                <p class="mb-2">
                   BIRT reports often contain formulas without cached values. The browser cannot
                   evaluate Excel formulas.
                 </p>
-                <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">
+                <p class="font-medium">
                   Fix: Open the file in Excel, press Ctrl+S to save, then re-upload.
                 </p>
-              </div>
+              </AlertBox>
 
-              <!-- Report Header Detection -->
-              <div
-                class="rounded border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3"
-              >
-                <h4 class="font-medium text-blue-800 dark:text-blue-200 text-sm mb-1">
-                  Report headers detected automatically
-                </h4>
-                <p class="text-sm text-blue-700 dark:text-blue-300">
-                  Files with BIRT report headers (containing "Time Period", "Executed on", "Query")
-                  are automatically detected. The tool will find your data columns after the header
-                  section.
-                </p>
-              </div>
+              <AlertBox variant="warning" title="XLSX files lose formatting">
+                Converted XLSX reports will not retain their BIRT Studio formatting (colors, fonts,
+                etc.) due to library limitations. Only the data values are preserved.
+              </AlertBox>
+            </div>
+          </section>
 
-              <!-- Merged Columns -->
-              <div
-                class="rounded border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 p-3"
-              >
-                <h4 class="font-medium text-slate-800 dark:text-slate-200 text-sm mb-1">
-                  Merged columns in Excel
-                </h4>
-                <p class="text-sm text-slate-600 dark:text-slate-400">
-                  Merged columns in the header row are automatically skipped to prevent duplicate or
-                  empty column names.
-                </p>
-              </div>
+          <!-- Good to Know -->
+          <section>
+            <h3 class="font-semibold text-foreground mb-2 flex items-center gap-2">
+              <Icon icon="lucide:lightbulb" class="w-4 h-4 text-blue-500" aria-hidden="true" />
+              Good to Know
+            </h3>
+            <div class="space-y-3">
+              <AlertBox variant="neutral" title="Report headers detected automatically">
+                Files with BIRT report headers (containing "Time Period", "Executed on", "Query")
+                are automatically detected. The tool will find your data columns after the header
+                section.
+              </AlertBox>
+
+              <AlertBox variant="neutral" title="Merged columns handled automatically">
+                Merged columns in the header row are automatically skipped to prevent duplicate or
+                empty column names.
+              </AlertBox>
             </div>
           </section>
 
