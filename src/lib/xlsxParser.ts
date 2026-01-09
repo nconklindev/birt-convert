@@ -9,61 +9,88 @@ interface SheetData {
 }
 
 /**
+ * Check if the first few rows contain report header markers
+ * Report headers contain "Time Period", "Executed on", and "Query" in rows 0-5
+ */
+function hasReportHeader(rows: unknown[][]): boolean {
+  const markers = ['Time Period', 'Executed on', 'Query']
+  const searchRows = rows.slice(0, 6)
+
+  const foundMarkers = new Set<string>()
+
+  for (const row of searchRows) {
+    if (!Array.isArray(row)) continue
+    for (const cell of row) {
+      if (typeof cell === 'string') {
+        for (const marker of markers) {
+          if (cell.includes(marker)) {
+            foundMarkers.add(marker)
+          }
+        }
+      }
+    }
+  }
+
+  return foundMarkers.size >= 2 // At least 2 of 3 markers
+}
+
+/**
+ * Find the column header row after a report header
+ * Looks for the first row with many non-empty cells after the report metadata
+ */
+function findColumnHeaderRow(rows: unknown[][]): number {
+  // Start searching from row 3 (report headers are typically in rows 0-2)
+  for (let i = 3; i < Math.min(rows.length, 15); i++) {
+    const row = rows[i]
+    if (!Array.isArray(row)) continue
+
+    const nonEmptyCells = row.filter((cell) => cell != null && cell !== '').length
+    const stringCells = row.filter((cell) => typeof cell === 'string').length
+
+    // Column header row should have many cells, mostly strings
+    if (nonEmptyCells >= 5 && stringCells / nonEmptyCells >= 0.6) {
+      return i
+    }
+  }
+
+  return 6 // Default fallback
+}
+
+/**
  * Detect the header row in a sheet by analyzing row patterns
  * Returns the index of the row that appears to be the header
  */
 function detectHeaderRow(rows: unknown[][]): number {
   if (rows.length === 0) return 0
 
-  // Look for the first row that:
-  // 1. Has multiple non-empty cells (at least 3)
-  // 2. Is followed by at least 2 rows with similar structure
-  // 3. Contains mostly string values (typical for headers)
+  // Check if file has a report header (contains "Time Period", "Executed on", "Query")
+  if (hasReportHeader(rows)) {
+    return findColumnHeaderRow(rows)
+  }
 
-  for (let i = 0; i < Math.min(rows.length - 2, 20); i++) {
-    const row = rows[i]
-    if (!Array.isArray(row)) continue
+  // No report header - column headers should be on row 0
+  return 0
+}
 
-    // Check if this row has enough non-empty cells
-    const nonEmptyCells = row.filter((cell) => cell != null && cell !== '').length
-    if (nonEmptyCells < 3) continue
+/**
+ * Get columns that are merged on a specific row
+ * Returns a Set of column indices that are part of a merge but NOT the first cell
+ */
+function getMergedColumns(worksheet: XLSX.WorkSheet, headerRowIndex: number): Set<number> {
+  const mergedCols = new Set<number>()
+  const merges = worksheet['!merges'] || []
 
-    // Check if mostly strings (header characteristic)
-    const stringCells = row.filter((cell) => typeof cell === 'string').length
-    const stringRatio = stringCells / nonEmptyCells
-
-    if (stringRatio < 0.6) continue // At least 60% strings
-
-    // Check if the next 2 rows have similar column count (data rows)
-    const nextRow1 = rows[i + 1]
-    const nextRow2 = rows[i + 2]
-
-    if (!Array.isArray(nextRow1) || !Array.isArray(nextRow2)) continue
-
-    const nextRow1Count = nextRow1.filter((cell) => cell != null && cell !== '').length
-    const nextRow2Count = nextRow2.filter((cell) => cell != null && cell !== '').length
-
-    // If next rows have similar column counts, this is likely the header
-    const avgNextCount = (nextRow1Count + nextRow2Count) / 2
-    if (Math.abs(avgNextCount - nonEmptyCells) <= 2) {
-      return i
+  for (const merge of merges) {
+    // Check if this merge includes the header row
+    if (merge.s.r <= headerRowIndex && merge.e.r >= headerRowIndex) {
+      // Add all columns in the merge EXCEPT the first one (which has the actual value)
+      for (let col = merge.s.c + 1; col <= merge.e.c; col++) {
+        mergedCols.add(col)
+      }
     }
   }
 
-  // Fallback: first row with most non-empty cells
-  let maxNonEmpty = 0
-  let maxIndex = 0
-  for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    const row = rows[i]
-    if (!Array.isArray(row)) continue
-    const nonEmpty = row.filter((cell) => cell != null && cell !== '').length
-    if (nonEmpty > maxNonEmpty) {
-      maxNonEmpty = nonEmpty
-      maxIndex = i
-    }
-  }
-
-  return maxIndex
+  return mergedCols
 }
 
 /**
@@ -90,23 +117,37 @@ function parseXLSXSheet(workbook: XLSX.WorkBook): SheetData {
   const headerRowIndex = detectHeaderRow(rawData)
   const headerRow = rawData[headerRowIndex]
 
-  // Extract headers (clean up empty columns)
+  // Get merged columns to exclude
+  const mergedColumns = getMergedColumns(worksheet, headerRowIndex)
+
+  // Extract headers (skip merged columns)
   const rawHeaders: string[] = []
   const headerMap: Map<number, string> = new Map()
+  const validColumnIndices: number[] = []
 
   if (Array.isArray(headerRow)) {
     headerRow.forEach((cell, index) => {
-      const headerName = cell != null && cell !== '' ? String(cell).trim() : `Column${index + 1}`
+      // Skip columns that are part of a merge (not the first cell)
+      if (mergedColumns.has(index)) return
+
+      // Skip columns with no header (empty/blank columns)
+      if (cell == null || cell === '') return
+
+      const headerName = String(cell).trim()
       rawHeaders.push(headerName)
+      validColumnIndices.push(index)
     })
   }
 
   // Ensure uniqueness by appending count if duplicate
   const headers = ensureUniqueHeaders(rawHeaders)
 
-  // Map indices to unique header names
-  headers.forEach((header, index) => {
-    headerMap.set(index, header)
+  // Map original column indices to unique header names
+  validColumnIndices.forEach((originalIndex, headerIndex) => {
+    const headerName = headers[headerIndex]
+    if (headerName) {
+      headerMap.set(originalIndex, headerName)
+    }
   })
 
   // Parse data rows (skip header and any rows before it)
