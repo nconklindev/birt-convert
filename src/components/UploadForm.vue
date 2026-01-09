@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,7 @@ import { parseCSVFile, convertCSVColumns, convertToCSV } from '@/lib/csvParser'
 import { parseXLSXFile, convertToXLSX } from '@/lib/xlsxParser'
 import type { ParsedCSV } from '@/lib/csvParser'
 import JSZip from 'jszip'
+import AlertBox from './AlertBox.vue'
 
 type Step = 'upload' | 'select-columns' | 'converting'
 
@@ -35,6 +36,9 @@ const conversionProgress = ref<ConversionProgress[]>([])
 const currentConvertingFile = ref('')
 const errorMessage = ref('')
 const liveMessage = ref('')
+
+// Check if any files are still uploading
+const isUploading = computed(() => fileUploadRef.value?.isUploading ?? false)
 
 function handleFilesSelected(files: File[]) {
   uploadedFiles.value = files
@@ -271,8 +275,8 @@ function resetForm() {
 
         <Button
           type="submit"
-          :disabled="isProcessing || uploadedFiles.length === 0"
-          class="min-w-[120px] font-medium cursor-pointer"
+          :disabled="isProcessing || isUploading || uploadedFiles.length === 0"
+          class="min-w-30 font-medium cursor-pointer"
         >
           <Icon
             v-if="isProcessing"
@@ -354,4 +358,15 @@ function resetForm() {
       </div>
     </CardContent>
   </Card>
+  <section id="disclaimer" class="mt-8 text-sm text-muted-foreground max-w-3xl mx-auto">
+    <AlertBox title="Disclaimer" variant="neutral">
+      <p>
+        This tool is not an official tool of UKG. This tool is provided "as is" without any
+        warranties. While we strive to ensure accurate conversions, we cannot guarantee that all
+        decimal hour values will be converted correctly in every scenario. Users are advised to
+        review the converted files for accuracy before use in any official capacity. By using this
+        tool, you acknowledge and accept these terms.
+      </p>
+    </AlertBox>
+  </section>
 </template>
