@@ -169,8 +169,9 @@ export function convertCSVColumns(
   const convertedData = data.map((row) => {
     const newRow = { ...row }
     for (const column of columnsToConvert) {
-      if (typeof newRow[column] === 'number') {
-        const convertedValue = decimalToTime(newRow[column] as number)
+      const value = newRow[column]
+      if (typeof value === 'number') {
+        const convertedValue = decimalToTime(value)
 
         if (keepOriginal) {
           // Create new column with _hhmm suffix
