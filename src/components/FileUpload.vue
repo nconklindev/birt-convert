@@ -26,6 +26,7 @@ const dropZoneRef = ref<HTMLDivElement | null>(null)
 const liveMessage = ref('')
 
 const hasFiles = computed(() => files.value.length > 0)
+const isUploading = computed(() => files.value.some((f) => f.status === 'uploading'))
 
 // Use VueUse's useDropZone
 const { isOverDropZone } = useDropZone(dropZoneRef, {
@@ -140,9 +141,10 @@ function clearAll() {
   }
 }
 
-// Expose clearAll so parent can reset the component
+// Expose methods and state so parent can interact with the component
 defineExpose({
   clearAll,
+  isUploading,
 })
 </script>
 
