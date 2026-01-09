@@ -37,4 +37,5 @@ coverage
 __screenshots__/
 
 test-results/
+test-data/
 playwright-report/
