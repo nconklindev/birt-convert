@@ -103,7 +103,8 @@ async function handleConvert(selectedColumns: Map<string, string[]>, keepOrigina
   await nextTick()
 
   try {
-    const zip = new JSZip()
+    // Track converted files for single vs multi-file download
+    const convertedFiles: { fileName: string; blob: Blob }[] = []
 
     // Convert each file sequentially with progress updates
     for (const parsedFile of parsedFiles.value) {
@@ -129,19 +130,21 @@ async function handleConvert(selectedColumns: Map<string, string[]>, keepOrigina
         keepOriginal,
       )
 
-      // Detect original file type and add to zip accordingly
+      // Detect original file type and create blob accordingly
       const fileName = parsedFile.fileName.toLowerCase()
       const convertedFileName = parsedFile.fileName.replace(/\.(csv|xlsx)$/i, '_converted.$1')
 
+      let blob: Blob
       if (fileName.endsWith('.xlsx')) {
         // Export as XLSX
-        const blob = convertToXLSX(convertedData, parsedFile.headers, newHeaders)
-        zip.file(convertedFileName, blob)
+        blob = convertToXLSX(convertedData, parsedFile.headers, newHeaders)
       } else {
         // Export as CSV
         const csvString = convertToCSV(convertedData, parsedFile.headers, newHeaders)
-        zip.file(convertedFileName, csvString)
+        blob = new Blob([csvString], { type: 'text/csv' })
       }
+
+      convertedFiles.push({ fileName: convertedFileName, blob })
 
       // Update progress: mark as complete
       if (progressItem) {
@@ -153,10 +156,22 @@ async function handleConvert(selectedColumns: Map<string, string[]>, keepOrigina
       await delay(200)
     }
 
-    // Generate and download zip file
-    const zipBlob = await zip.generateAsync({ type: 'blob' })
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-    downloadBlob(zipBlob, `converted_files_${timestamp}.zip`)
+    // Download: single file directly, multiple files as zip
+    if (convertedFiles.length === 1) {
+      // Single file - download directly without zipping
+      const file = convertedFiles[0]
+      if (!file) throw new Error('No converted file found')
+      downloadBlob(file.blob, file.fileName)
+    } else {
+      // Multiple files - create zip
+      const zip = new JSZip()
+      for (const file of convertedFiles) {
+        zip.file(file.fileName, file.blob)
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      downloadBlob(zipBlob, `converted_files_${timestamp}.zip`)
+    }
 
     liveMessage.value = `All files converted successfully. Download started.`
 
@@ -259,7 +274,12 @@ function resetForm() {
           :disabled="isProcessing || uploadedFiles.length === 0"
           class="min-w-[120px] font-medium cursor-pointer"
         >
-          <Icon v-if="isProcessing" icon="lucide:loader-2" class="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+          <Icon
+            v-if="isProcessing"
+            icon="lucide:loader-2"
+            class="w-4 h-4 mr-2 animate-spin"
+            aria-hidden="true"
+          />
           <Icon v-else icon="lucide:arrow-right" class="w-4 h-4 mr-2" aria-hidden="true" />
           {{ isProcessing ? 'Analyzing...' : 'Next' }}
         </Button>
@@ -303,7 +323,12 @@ function resetForm() {
               class="w-5 h-5 text-primary animate-spin"
               aria-hidden="true"
             />
-            <Icon v-else icon="lucide:circle" class="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+            <Icon
+              v-else
+              icon="lucide:circle"
+              class="w-5 h-5 text-muted-foreground"
+              aria-hidden="true"
+            />
 
             <div>
               <p class="text-sm font-medium">{{ item.fileName }}</p>
