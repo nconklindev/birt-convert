@@ -33,7 +33,7 @@
   "devDependencies": {
     "@iconify-json/radix-icons": "^1.2.6",
     "@iconify/vue": "^5.0.0",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "^1.58.1",
     "@tsconfig/node22": "^22.0.2",
     "@types/jszip": "^3.4.1",
     "@types/node": "^25.0.10",
