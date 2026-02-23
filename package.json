@@ -26,7 +26,7 @@
     "papaparse": "^5.5.3",
     "reka-ui": "^2.8.2",
     "tailwind-merge": "^3.4.1",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.2.0",
     "vue": "^3.5.28",
     "xlsx": "^0.18.5"
   },
